@@ -4,7 +4,7 @@ const { Server } = require('socket.io');
 const cors = require('cors');
 const UAParser = require('ua-parser-js');
 const axios = require('axios');
-const { insertLog, getAllLogs } = require('./database');
+const { insertLog, getAllLogs, deleteLog, clearAllLogs } = require('./database');
 const path = require('path');
 
 const app = express();
@@ -12,7 +12,7 @@ const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
         origin: "*",
-        methods: ["GET", "POST"]
+        methods: ["GET", "POST", "DELETE"]
     }
 });
 
@@ -44,6 +44,18 @@ const getGeo = async (ip) => {
 
 app.get('/api/logs', (req, res) => {
     res.json(getAllLogs());
+});
+
+app.delete('/api/logs/all', (req, res) => {
+    clearAllLogs();
+    io.emit('logs-cleared');
+    res.json({ success: true });
+});
+
+app.delete('/api/logs/:id', (req, res) => {
+    deleteLog(req.params.id);
+    io.emit('log-deleted', req.params.id);
+    res.json({ success: true });
 });
 
 // Primary endpoint/middleware for logging

@@ -9,7 +9,9 @@ import {
   Clock,
   Shield,
   Smartphone,
-  Server
+  Server,
+  Trash2,
+  XCircle
 } from 'lucide-react';
 
 const socket = io('/');
@@ -20,21 +22,45 @@ function App() {
 
   useEffect(() => {
     // Fetch initial logs
+    fetchLogs();
+
+    socket.on('new-log', (newLog) => {
+      setLogs(prev => [newLog, ...prev].slice(0, 100));
+    });
+
+    socket.on('log-deleted', (id) => {
+      setLogs(prev => prev.filter(log => log.id.toString() !== id.toString()));
+    });
+
+    socket.on('logs-cleared', () => {
+      setLogs([]);
+    });
+
+    return () => {
+      socket.off('new-log');
+      socket.off('log-deleted');
+      socket.off('logs-cleared');
+    };
+  }, []);
+
+  const fetchLogs = () => {
     fetch('/api/logs')
       .then(res => res.json())
       .then(data => {
         setLogs(data);
         setLoading(false);
       });
+  };
 
-    socket.on('new-log', (newLog) => {
-      setLogs(prev => [newLog, ...prev].slice(0, 100));
-    });
+  const deleteLog = (id) => {
+    fetch(`/api/logs/${id}`, { method: 'DELETE' });
+  };
 
-    return () => {
-      socket.off('new-log');
-    };
-  }, []);
+  const clearAll = () => {
+    if (window.confirm('Are you sure you want to clear all logs?')) {
+      fetch('/api/logs/all', { method: 'DELETE' });
+    }
+  };
 
   return (
     <div className="min-h-screen p-4 md:p-8 flex flex-col items-center">
@@ -46,9 +72,17 @@ function App() {
             <span className="live-indicator"></span> Real-time traffic monitoring active
           </p>
         </div>
-        <div className="hidden md:block text-right">
-          <p className="text-sm text-text-dim">Connected Nodes</p>
-          <p className="text-2xl font-mono">01</p>
+        <div className="flex items-center gap-6">
+          <button
+            onClick={clearAll}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 transition-all text-sm font-medium"
+          >
+            <XCircle size={16} /> Clear All
+          </button>
+          <div className="hidden md:block text-right">
+            <p className="text-sm text-text-dim">Connected Nodes</p>
+            <p className="text-2xl font-mono">01</p>
+          </div>
         </div>
       </header>
 
@@ -62,7 +96,7 @@ function App() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95 }}
               layout
-              className="glass p-6 flex flex-col md:flex-row gap-6 md:items-center justify-between"
+              className="glass p-6 flex flex-col md:flex-row gap-6 md:items-center justify-between group"
             >
               <div className="flex gap-4 items-center">
                 <div className="p-3 bg-indigo-500/20 rounded-xl">
@@ -77,7 +111,7 @@ function App() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 md:flex gap-8 items-center">
+              <div className="grid grid-cols-2 lg:flex gap-8 items-center flex-1 justify-end mr-4">
                 <div className="flex flex-col">
                   <span className="text-xs text-text-dim uppercase tracking-wider mb-1">Location</span>
                   <span className="flex items-center gap-1"><MapPin size={16} className="text-rose-400" /> {log.city}, {log.country}</span>
@@ -87,6 +121,14 @@ function App() {
                   <span className="flex items-center gap-1 text-amber-400"><Clock size={16} /> {new Date(log.timestamp).toLocaleTimeString()}</span>
                 </div>
               </div>
+
+              <button
+                onClick={() => deleteLog(log.id)}
+                className="p-2 rounded-lg bg-text-dim/10 text-text-dim hover:bg-rose-500/20 hover:text-rose-400 transition-all opacity-0 group-hover:opacity-100"
+                title="Delete Log"
+              >
+                <Trash2 size={20} />
+              </button>
             </motion.div>
           ))}
         </AnimatePresence>
